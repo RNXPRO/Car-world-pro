@@ -1,0 +1,462 @@
+ 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAR WORLD PRO</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--red:#ed2028;--bg:#090909;--panel:#151515;--muted:#aaa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:white;font-family:Arial,sans-serif}
+header{padding:18px 6%;display:flex;justify-content:space-between;align-items:center;background:#111;border-bottom:2px solid var(--red);position:sticky;top:0;z-index:5}
+.logo{font-size:23px;font-weight:900}.logo span{color:var(--red)}
+button{background:var(--red);border:0;color:white;padding:11px 17px;border-radius:6px;font-weight:bold;cursor:pointer}
+button:hover{opacity:.85}
+.secondary{background:#333}
+.hero{text-align:center;padding:75px 15px 65px;background:linear-gradient(#0009,#000d),url('https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1600') center/cover}
+.hero h1{font-size:clamp(36px,7vw,65px);margin:0;text-transform:uppercase}
+.hero h1 span{color:var(--red)}
+.hero p{color:#ddd;font-size:17px}
+section{padding:35px 6%}
+.section-title{text-align:center;font-size:30px;margin:5px 0 25px}
+.section-title span{color:var(--red)}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:25px}
+input,select,textarea{width:100%;padding:12px;background:#222;border:1px solid #444;color:white;border-radius:6px;margin:6px 0;font-size:15px}
+.filters input{flex:2;min-width:180px}
+.filters select{flex:1;min-width:140px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px}
+.car{background:var(--panel);border:1px solid #292929;border-radius:10px;overflow:hidden}
+.car img{width:100%;height:175px;object-fit:cover;background:#222}
+.car-content{padding:15px}
+.car h3{margin:4px 0 8px}
+.tag{color:var(--red);font-size:12px;text-transform:uppercase;font-weight:bold}
+.car p{color:#bbb;font-size:14px;line-height:1.5}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.actions button{font-size:12px;padding:9px}
+.video-box{background:#151515;padding:15px;border-radius:10px}
+.video-box video{width:100%;max-height:320px;background:#000}
+.empty{text-align:center;color:#aaa;padding:35px}
+#adminPanel{display:none;background:#111;border:1px solid #333;border-radius:10px;padding:20px;margin-top:20px}
+#loginPanel{display:none;background:#111;padding:20px;border-radius:10px;max-width:450px;margin:20px auto}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+footer{text-align:center;padding:30px;color:#888;border-top:1px solid #333}
+footer span{color:var(--red)}
+.modal{display:none;position:fixed;inset:0;background:#000d;z-index:10;align-items:center;justify-content:center;padding:15px}
+.modal-content{background:#171717;padding:22px;border-radius:10px;width:100%;max-width:500px;max-height:90vh;overflow:auto}
+@media(max-width:600px){header{padding:14px 4%}.logo{font-size:18px}.form-grid{grid-template-columns:1fr}section{padding:28px 4%}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CAR WORLD <span>PRO</span></div>
+  <button onclick="toggleLogin()">ADMIN</button>
+</header>
+
+<div class="hero">
+  <h1>WELCOME TO <span>CAR WORLD PRO</span></h1>
+  <p>Discover the world of luxury, sport and supercars.</p>
+  <button onclick="document.getElementById('carsSection').scrollIntoView({behavior:'smooth'})">EXPLORE CARS</button>
+</div>
+
+<section id="carsSection">
+  <h2 class="section-title">OUR <span>CARS</span></h2>
+  <div class="filters">
+    <input id="search" placeholder="Search cars..." oninput="renderCars()">
+    <select id="category" onchange="renderCars()">
+      <option value="">All categories</option>
+      <option value="Luxury">Luxury</option>
+      <option value="Sport">Sport</option>
+      <option value="Supercar">Supercar</option>
+      <option value="SUV">SUV</option>
+    </select>
+  </div>
+  <div id="carsGrid" class="grid"></div>
+</section>
+
+<section id="videosSection">
+  <h2 class="section-title">CAR <span>VIDEOS</span></h2>
+  <div id="videosGrid" class="grid"></div>
+</section>
+
+<section id="adminArea">
+  <div id="loginPanel">
+    <h2>Admin Login</h2>
+    <input id="email" type="email" placeholder="Admin email">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="login()">LOGIN</button>
+    <button class="secondary" onclick="toggleLogin()">CLOSE</button>
+    <p id="loginMessage"></p>
+  </div>
+
+  <div id="adminPanel">
+    <h2>ADMIN DASHBOARD</h2>
+    <p id="adminStatus">You are logged in.</p>
+    <button onclick="newCar()">ADD NEW CAR</button>
+    <button class="secondary" onclick="logout()">LOGOUT</button>
+
+    <div id="carForm" style="display:none;margin-top:20px">
+      <h3 id="formTitle">Add a car</h3>
+      <input id="carId" type="hidden">
+      <div class="form-grid">
+        <input id="carName" placeholder="Car name">
+        <input id="carBrand" placeholder="Brand">
+      </div>
+      <select id="carCategory">
+        <option value="Sport">Sport</option>
+        <option value="Luxury">Luxury</option>
+        <option value="Supercar">Supercar</option>
+        <option value="SUV">SUV</option>
+      </select>
+      <textarea id="carDescription" placeholder="Car description" rows="3"></textarea>
+      <label>Car image</label>
+      <input id="carImage" type="file" accept="image/*">
+      <label>Car video (optional)</label>
+      <input id="carVideo" type="file" accept="video/*">
+      <button onclick="saveCar()">SAVE CAR</button>
+      <button class="secondary" onclick="cancelForm()">CANCEL</button>
+      <p id="formMessage"></p>
+    </div>
+    <h3>Manage cars</h3>
+    <div id="adminCars" class="grid"></div>
+  </div>
+</section>
+
+<div class="modal" id="detailsModal" onclick="closeDetails(event)">
+  <div class="modal-content">
+    <button class="secondary" onclick="document.getElementById('detailsModal').style.display='none'">CLOSE</button>
+    <div id="detailsContent"></div>
+  </div>
+</div>
+
+<footer>
+  <div class="logo">CAR WORLD <span>PRO</span></div>
+  <p>© 2026 CAR WORLD PRO - All rights reserved.</p>
+</footer>
+
+<script>
+// 1. PUT YOUR SUPABASE PROJECT DETAILS HERE
+const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+const SUPABASE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
+
+// 2. CONNECT TO SUPABASE
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let cars = [];
+let currentUser = null;
+
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  }[c]));
+}
+
+function safeUrl(value) {
+  try {
+    const u = new URL(value);
+    return ["http:", "https:"].includes(u.protocol) ? u.href : "";
+  } catch {
+    return "";
+  }
+}
+
+async function loadCars() {
+  const { data, error } = await db.from("cars")
+    .select("*").order("created_at", {ascending:false});
+
+  if (error) {
+    document.getElementById("carsGrid").innerHTML =
+      '<p class="empty">Could not load cars. Check your Supabase setup.</p>';
+    console.error(error);
+    return;
+  }
+
+  cars = data || [];
+  renderCars();
+  renderVideos();
+  if (currentUser) renderAdminCars();
+}
+
+function renderCars() {
+  const search = document.getElementById("search").value.toLowerCase();
+  const category = document.getElementById("category").value;
+
+  const filtered = cars.filter(car => {
+    const text = `${car.name} ${car.brand} ${car.description}`.toLowerCase();
+    return text.includes(search) && (!category || car.category === category);
+  });
+
+  const grid = document.getElementById("carsGrid");
+  if (!filtered.length) {
+    grid.innerHTML = '<p class="empty">No cars found.</p>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(car => `
+    <article class="car">
+      <img src="${escapeHTML(safeUrl(car.image_url))}" alt="${escapeHTML(car.name)}" loading="lazy">
+      <div class="car-content">
+        <div class="tag">${escapeHTML(car.category)}</div>
+        <h3>${escapeHTML(car.brand)} ${escapeHTML(car.name)}</h3>
+        <p>${escapeHTML(car.description)}</p>
+        <button onclick="showDetails('${car.id}')">VIEW DETAILS</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+function renderVideos() {
+  const list = cars.filter(car => car.video_url);
+  const grid = document.getElementById("videosGrid");
+
+  if (!list.length) {
+    grid.innerHTML = '<p class="empty">No videos available yet.</p>';
+    return;
+  }
+
+  grid.innerHTML = list.map(car => `
+    <div class="video-box">
+      <video controls preload="metadata" src="${escapeHTML(safeUrl(car.video_url))}"></video>
+      <h3>${escapeHTML(car.brand)} ${escapeHTML(car.name)}</h3>
+    </div>
+  `).join("");
+}
+
+function showDetails(id) {
+  const car = cars.find(c => String(c.id) === String(id));
+  if (!car) return;
+
+  document.getElementById("detailsContent").innerHTML = `
+    <img src="${escapeHTML(safeUrl(car.image_url))}" style="width:100%;border-radius:8px">
+    <div class="tag">${escapeHTML(car.category)}</div>
+    <h2>${escapeHTML(car.brand)} ${escapeHTML(car.name)}</h2>
+    <p>${escapeHTML(car.description)}</p>
+    ${car.video_url ? `<video controls style="width:100%" src="${escapeHTML(safeUrl(car.video_url))}"></video>` : ""}
+  `;
+  document.getElementById("detailsModal").style.display = "flex";
+}
+
+function closeDetails(event) {
+  if (event.target.id === "detailsModal") {
+    document.getElementById("detailsModal").style.display = "none";
+  }
+}
+
+function toggleLogin() {
+  const panel = document.getElementById("loginPanel");
+  panel.style.display = panel.style.display === "block" ? "none" : "block";
+}
+
+async function login() {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const message = document.getElementById("loginMessage");
+
+  message.textContent = "Logging in...";
+
+  const { data, error } = await db.auth.signInWithPassword({email, password});
+
+  if (error) {
+    message.textContent = error.message;
+    return;
+  }
+
+  currentUser = data.user;
+  document.getElementById("loginPanel").style.display = "none";
+  document.getElementById("adminPanel").style.display = "block";
+  document.getElementById("adminStatus").textContent = "Logged in as " + currentUser.email;
+  await loadCars();
+}
+
+async function logout() {
+  await db.auth.signOut();
+  currentUser = null;
+  document.getElementById("adminPanel").style.display = "none";
+  document.getElementById("carForm").style.display = "none";
+}
+
+function newCar() {
+  document.getElementById("carForm").style.display = "block";
+  document.getElementById("formTitle").textContent = "Add a car";
+  document.getElementById("carId").value = "";
+  document.getElementById("carName").value = "";
+  document.getElementById("carBrand").value = "";
+  document.getElementById("carCategory").value = "Sport";
+  document.getElementById("carDescription").value = "";
+  document.getElementById("carImage").value = "";
+  document.getElementById("carVideo").value = "";
+  document.getElementById("formMessage").textContent = "";
+}
+
+function cancelForm() {
+  document.getElementById("carForm").style.display = "none";
+}
+
+function editCar(id) {
+  const car = cars.find(c => String(c.id) === String(id));
+  if (!car) return;
+
+  document.getElementById("carForm").style.display = "block";
+  document.getElementById("formTitle").textContent = "Edit car";
+  document.getElementById("carId").value = car.id;
+  document.getElementById("carName").value = car.name || "";
+  document.getElementById("carBrand").value = car.brand || "";
+  document.getElementById("carCategory").value = car.category || "Sport";
+  document.getElementById("carDescription").value = car.description || "";
+  document.getElementById("carImage").value = "";
+  document.getElementById("carVideo").value = "";
+  document.getElementById("formMessage").textContent =
+    "Choose a new file only if you want to replace the existing one.";
+  document.getElementById("carForm").scrollIntoView({behavior:"smooth"});
+}
+
+async function uploadFile(file, folder) {
+  if (!file) return null;
+
+  const maxSize = folder === "images" ? 8 * 1024 * 1024 : 30 * 1024 * 1024;
+  if (file.size > maxSize) {
+    throw new Error(folder === "images" ? "Image must be under 8MB." : "Video must be under 30MB.");
+  }
+
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}-${safeName}`;
+
+  const {error} = await db.storage.from("car-media").upload(path, file, {
+    cacheControl:"3600", upsert:false
+  });
+  if (error) throw error;
+
+  const {data} = db.storage.from("car-media").getPublicUrl(path);
+  return {url:data.publicUrl, path};
+}
+
+async function saveCar() {
+  if (!currentUser) {
+    alert("Please log in first.");
+    return;
+  }
+
+  const message = document.getElementById("formMessage");
+  const id = document.getElementById("carId").value;
+  const name = document.getElementById("carName").value.trim();
+  const brand = document.getElementById("carBrand").value.trim();
+  const category = document.getElementById("carCategory").value;
+  const description = document.getElementById("carDescription").value.trim();
+  const imageFile = document.getElementById("carImage").files[0];
+  const videoFile = document.getElementById("carVideo").files[0];
+
+  if (!name || !brand) {
+    message.textContent = "Please enter the car name and brand.";
+    return;
+  }
+
+  const old = cars.find(c => String(c.id) === String(id));
+  message.textContent = "Saving...";
+
+  try {
+    let image_url = old?.image_url || "";
+    let image_path = old?.image_path || "";
+    let video_url = old?.video_url || "";
+    let video_path = old?.video_path || "";
+
+    if (imageFile) {
+      const uploaded = await uploadFile(imageFile, "images");
+      image_url = uploaded.url;
+      image_path = uploaded.path;
+    }
+
+    if (videoFile) {
+      const uploaded = await uploadFile(videoFile, "videos");
+      video_url = uploaded.url;
+      video_path = uploaded.path;
+    }
+
+    const record = {
+      name, brand, category, description,
+      image_url, image_path, video_url, video_path
+    };
+
+    let result;
+    if (id) {
+      result = await db.from("cars").update(record).eq("id", id);
+    } else {
+      result = await db.from("cars").insert(record);
+    }
+
+    if (result.error) throw result.error;
+
+    message.textContent = "Car saved successfully!";
+    cancelForm();
+    await loadCars();
+  } catch (error) {
+    console.error(error);
+    message.textContent = "Error: " + error.message;
+  }
+}
+
+async function deleteCar(id) {
+  if (!confirm("Are you sure you want to delete this car?")) return;
+
+  const car = cars.find(c => String(c.id) === String(id));
+  if (!car) return;
+
+  const {error} = await db.from("cars").delete().eq("id", id);
+  if (error) {
+    alert("Delete failed: " + error.message);
+    return;
+  }
+
+  const paths = [car.image_path, car.video_path].filter(Boolean);
+  if (paths.length) {
+    const {error:storageError} = await db.storage.from("car-media").remove(paths);
+    if (storageError) console.error("Storage cleanup:", storageError);
+  }
+
+  await loadCars();
+}
+
+function renderAdminCars() {
+  const grid = document.getElementById("adminCars");
+  if (!cars.length) {
+    grid.innerHTML = '<p class="empty">No cars added yet.</p>';
+    return;
+  }
+
+  grid.innerHTML = cars.map(car => `
+    <div class="car">
+      <img src="${escapeHTML(safeUrl(car.image_url))}" alt="${escapeHTML(car.name)}">
+      <div class="car-content">
+        <h3>${escapeHTML(car.brand)} ${escapeHTML(car.name)}</h3>
+        <div class="actions">
+          <button onclick="editCar('${car.id}')">EDIT</button>
+          <button onclick="deleteCar('${car.id}')" class="secondary">DELETE</button>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+// Restore existing login session when the page opens
+async function restoreSession() {
+  const {data} = await db.auth.getSession();
+  if (data.session) {
+    currentUser = data.session.user;
+    document.getElementById("adminPanel").style.display = "block";
+    document.getElementById("adminStatus").textContent = "Logged in as " + currentUser.email;
+  }
+  await loadCars();
+}
+
+db.auth.onAuthStateChange((_event, session) => {
+  currentUser = session?.user || null;
+  if (!currentUser) {
+    document.getElementById("adminPanel").style.display = "none";
+  }
+});
+
+restoreSession();
+</script>
+</body>
+</html>
